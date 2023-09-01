@@ -27,7 +27,9 @@
 
 <body>
     <textarea placeholder="Your CSS Here" id="inputcss"></textarea>
-    <button onclick="start()">Submit</button>
+    <br>
+    <button onclick="start()">Variablefiy!</button>
+    <button onclick="save()">Save</button>
     <hr>
     <table>
         <thead>
@@ -75,7 +77,6 @@
             }
             // append char
             else if (!comment) {
-                console.log(char)
                 aLine += char.replace(/\s/g, " ");  // replace \r, \n etc with a space
             }
 
@@ -211,10 +212,15 @@
     }
 
     function checkvname(ele) {
-        var vname = ele.value;
-        if (vname == ele.previousValue) {
+        var vname = ele.value = ele.value.trim();
+        if (vname == ele.previousValue || vname == '') {
             ele.style.backgroundColor = "";
             return true;
+        }
+
+        if (vname.length < 2 || vname[0] + vname[1] != "--") {
+            vname = ele.value = "--" + vname;
+            return checkvname(ele);
         }
 
         if (v[vname] && v[vname] != ele.parentNode.parentNode.querySelector("td:nth-child(4) span").innerText) {
@@ -228,6 +234,18 @@
     }
 
     function changevname(ele) {
+        if (ele.value == '' && ele.previousValue != ele.value) {
+            ele.style.backgroundColor = "";
+            // delete old variable if no references
+            var oldvname = ele.previousValue;
+            vref[oldvname]--;
+            if (vref[oldvname] == 0) {
+                delete v[oldvname];
+                delete vref[oldvname];
+            }
+            return;
+        }
+
         if (!checkvname(ele)) {
             if (confirm("Variable name already exists!\nDo you want to revert the change?")) {
                 ele.value = ele.previousValue;
@@ -253,5 +271,51 @@
                 delete vref[oldvname];
             }
         }
+    }
+
+    function download(filename, text) {
+        var pom = document.createElement('a');
+        pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        pom.setAttribute('download', filename);
+
+        if (document.createEvent) {
+            var event = document.createEvent('MouseEvents');
+            event.initEvent('click', true, true);
+            pom.dispatchEvent(event);
+        }
+        else {
+            pom.click();
+        }
+    }
+
+    function save() {
+        var lines = csscode.split('\n');
+        for (var i = 0; i < $("#content").children.length; i++) {
+            tr = $("#content").children[i];
+            // get lncode, key, val, variable
+            var lncode = Number(tr.querySelector("td:nth-child(1) pre code").innerText.replace("Ln ", ""));
+            var key = tr.querySelector("td:nth-child(3)").innerText;
+            var val = tr.querySelector("td:nth-child(4) span").innerText;
+            var variable = tr.querySelector("td:nth-child(5) input").value;
+            if (lncode == 29) debugger
+            // replace
+            if (variable != '') {
+                console.log(lncode, key, val, variable)
+                lines[lncode - 1] = `${key}: var(${variable});`;
+            }
+            if (lncode == 29) debugger
+        }
+        csscode = lines.join('\n');
+
+        // define variables
+        var define = "body {\n";
+        for (var x in v) {
+            define += `    ${x}: ${v[x]};\n`;
+        }
+        define += "}";
+        csscode = define + "\n\n" + csscode;
+
+        // download
+        download("style.css", csscode);
     }
 </script>
