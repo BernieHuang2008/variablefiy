@@ -1,5 +1,5 @@
 # Variablefiy
-`Variablefiy` is a web app that can extract color from css and define it as variables.
+`Variablefiy` is a web app that can extract color from css and define them as variables.
 Try it on [my github pages](https://berniehuang2008.github.io/variablefiy/main.html)
 
 For some developers who writes css by hand, colors are often dispersed everywhere.
