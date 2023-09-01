@@ -23,6 +23,15 @@
     table {
         width: 100%;
     }
+
+    .detailed-codeblock {
+        position: relative;
+        top: 0;
+        left: 0;
+        overflow: auto;
+        background-color: #eee;
+        z-index: 1;
+    }
 </style>
 
 <body>
@@ -45,7 +54,7 @@
     </table>
 </body>
 
-<link rel="stylesheet" href="lib/highlight.js/styles/github.min.css">
+<link rel="stylesheet" href="lib/highlight.js/styles/intellij-light.min.css">
 <script src="lib/highlight.js/highlight.min.js"></script>
 
 <script>
@@ -62,6 +71,14 @@
     const colors = ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"];
 
     function start() {
+        if ($("#content").innerHTML != "" && !confirm("Are you sure to discard your changes?")) return;
+
+        /* init */
+        csscode = "";
+        v = {}; // variable value
+        vref = {};  // variable reference count
+        tokens = [];
+
         csscode = $("#inputcss").value;
         var curr_block = "";
 
@@ -149,13 +166,17 @@
             }
         }
 
+        /* Sort Tokens */
+        token_sort_by_color(tokens);
+
         /* Generate Table */
         var content = $("#content");
         content.innerHTML = "";
         tokens.forEach(t => {
             var tr = document.createElement("tr");
+            tr.onmouseleave = hidecode;
             tr.innerHTML = `
-                <td><pre><code>Ln ${t.line}</code></pre></td>
+                <td><pre><code style="cursor: pointer;user-select:none;" onclick="showcode(this, ${t.line})">Ln ${t.line}</code></pre></td>
                 <td><pre><code class='language-css'>${formatSelector(t.block)}</pre></code></td>
                 <td>${t.key}</td>
                 <td><span class=col style="--cl: ${t.value}">${t.value}</span></td>
@@ -166,6 +187,70 @@
 
         /* Highlight Code */
         hljs.highlightAll();
+    }
+
+    function showcode(ele, line) {
+        // create codeblock
+        var codeblock = document.createElement("div");
+        codeblock.classList.add("detailed-codeblock");
+        var lines = csscode.split("\n");
+
+        // find the first `css block start` from the current line to the top
+        var block_start = 0;
+        for (var i = line - 1; i >= 0; i--) {
+            if (lines[i].indexOf("{") != -1) {
+                block_start = i;
+                break;
+            }
+        }
+
+        // find the first `css block end` from the current line to the bottom
+        var block_end = lines.length - 1;
+        for (var i = line - 1; i < lines.length; i++) {
+            if (lines[i].indexOf("}") != -1) {
+                block_end = i;
+                break;
+            }
+        }
+
+        // intercept code block
+        var code = lines.slice(block_start, block_end + 1).join("\n");
+        codeblock.innerHTML = `<pre><code class='language-css'>${code}</pre></code>`;
+
+        // insert codeblock
+        ele.parentNode.parentNode.appendChild(codeblock);
+
+        // highlight
+        hljs.highlightAll();
+    }
+
+    function hidecode() {
+        $$(".detailed-codeblock").forEach(cblock => cblock.remove());
+    }
+
+    function token_sort_by_color(tokens) {
+        function hash(s) {
+            var h = 0;
+            for (var i = 0; i < s.length; i++) {
+                h = (h << 5) - h + s.charCodeAt(i);
+                h = h & h;
+            }
+            return h;
+        }
+
+        tokens.sort((a, b) => {
+            a_color = hash(a.value.toLowerCase());
+            b_color = hash(b.value.toLowerCase());
+            if (a_color < b_color) {
+                return -1;
+            }
+            else if (a_color > b_color) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        });
     }
 
     function autoVar(selector, key, value) {
