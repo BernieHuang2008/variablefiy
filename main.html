@@ -1,6 +1,257 @@
-<table>
-    <thead><tr><th>Position</th><th>Value</th><th>Variable</th></tr></thead>
-    <tbody id="content"></tbody>
-</table>
+<style>
+    td {
+        padding: 5px;
+    }
 
+    tr:hover {
+        background-color: #eee;
+    }
 
+    tr:hover>td>pre>code {
+        background-color: #eee;
+    }
+
+    span.col {
+        box-sizing: border-box;
+        border-bottom: solid 5px var(--cl);
+    }
+
+    input {
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+    }
+</style>
+
+<body>
+    <textarea placeholder="Your CSS Here" id="inputcss"></textarea>
+    <button onclick="start()">Submit</button>
+    <hr>
+    <table>
+        <thead>
+            <tr>
+                <th>Ln</th>
+                <th>CSS Block</th>
+                <th>Key</th>
+                <th>Value</th>
+                <th>Variable</th>
+            </tr>
+        </thead>
+        <tbody id="content"></tbody>
+    </table>
+</body>
+
+<link rel="stylesheet" href="lib/highlight.js/styles/github.min.css">
+<script src="lib/highlight.js/highlight.min.js"></script>
+
+<script>
+    function $(q) { return document.querySelector(q); }
+    function $$(q) { return document.querySelectorAll(q); }
+</script>
+<script>
+    var csscode = "";
+    var v = {}; // variable value
+    var vref = {};  // variable reference count
+    var tokens = [];
+
+    const exp_color = /(#[0-9a-fA-F]{3,8})|((rgb|rgba)\(.+?\))/g;
+    const colors = ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"];
+
+    function start() {
+        csscode = $("#inputcss").value;
+        var curr_block = "";
+
+        /* Format Lines */
+        var lines = [];
+        var aLine = " ";
+        var comment = false;
+        for (var i = 0; i < csscode.length; i++) { // iter through each char
+            var char = csscode[i];
+            // ignore multiple spaces
+            if (aLine[aLine.length - 1] == ' ' && char.match(/\s/g)) {
+                continue;
+            }
+            // append char
+            else if (!comment) {
+                console.log(char)
+                aLine += char.replace(/\s/g, " ");  // replace \r, \n etc with a space
+            }
+
+            // end of a line
+            if (comment == false)
+                switch (char) {
+                    case '{':
+                        lines.push(aLine.trim());
+                        aLine = " ";
+                        break;
+                    case '}':
+                        aLine = aLine.replace('}', ';');
+                        lines.push(aLine.trim());
+                        lines.push("}");
+                        aLine = " ";
+                        break;
+                    case ';':
+                        lines.push(aLine.trim());
+                        aLine = " ";
+                        break;
+                }
+
+            // comments
+            switch (csscode[i - 1] + char) {
+                case '/*':
+                    if (comment == false) {
+                        comment = true;
+                        aLine = aLine.substr(0, aLine.length - 2);  // remove "*/"
+                    }
+                    break;
+                case '*/':
+                    comment = false;
+                    break;
+            }
+        }
+        csscode = lines.join("\n");
+
+        /* Generate Token */
+        for (var i = 1; i <= lines.length; i++) {    // i: line number
+            var line = lines[i - 1].trim();
+
+            // a css line
+            if (line.indexOf(";") != -1) {
+                line = line.replace(';', '');    // remove ";"
+                var line_split = line.split(":", 2);
+                var key = line_split[0].trim();
+                var value = line_split[1].trim();
+
+                // if it's a color
+                if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
+                    var variable = autoVar(curr_block, key, value);
+                    tokens.push({
+                        line: i,
+                        block: curr_block,
+                        key: key,
+                        value: value,
+                        var: variable
+                    });
+                }
+            }
+
+            // a css selector (css block start)
+            else if (line.indexOf("{") != -1) {
+                curr_block = line.split("{")[0].trim();
+            }
+
+            // a css block end
+            else if (line.indexOf("}") != -1) {
+                curr_block = "";
+            }
+        }
+
+        /* Generate Table */
+        var content = $("#content");
+        content.innerHTML = "";
+        tokens.forEach(t => {
+            var tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><pre><code>Ln ${t.line}</code></pre></td>
+                <td><pre><code class='language-css'>${formatSelector(t.block)}</pre></code></td>
+                <td>${t.key}</td>
+                <td><span class=col style="--cl: ${t.value}">${t.value}</span></td>
+                <td><input value="${t.var}" onclick="backupvname(this)" oninput="checkvname(this)" onchange="changevname(this)"></td>
+            `;
+            content.appendChild(tr);
+        })
+
+        /* Highlight Code */
+        hljs.highlightAll();
+    }
+
+    function autoVar(selector, key, value) {
+        // construct variable name
+        var varName = "var-";
+        varName += selector.replace(/[^a-zA-Z0-9]/g, "-");
+        varName += "-" + key;
+        // format variable name
+        varName = varName.toLowerCase();
+        varName = varName.replaceAll(/\-+/g, '-');
+        varName = '--' + varName;
+        // statement the variable
+        if (!v[varName]) {
+            v[varName] = value;
+            vref[varName] = 1;
+        }
+        else {
+            if (v[varName] == value) {
+                vref[varName]++;
+            }
+            else {
+                // generate new var name
+                varName += `-${vref[varName] + 1}`;
+                // statement
+                v[varName] = value;
+                vref[varName] = 1;
+            }
+        }
+        return varName;
+    }
+
+    function formatSelector(s) {
+        s = s.replaceAll(',', ', ');
+        s = s.replaceAll('>', ' > ');
+        s = s.replaceAll('+', ' + ');
+        s = s.replaceAll('~', ' ~ ');
+        s = s.replaceAll(/\s+/g, ' ');
+        return s;
+    }
+
+    function backupvname(ele) {
+        ele.previousValue = ele.value;
+        ele.select();
+    }
+
+    function checkvname(ele) {
+        var vname = ele.value;
+        if (vname == ele.previousValue) {
+            ele.style.backgroundColor = "";
+            return true;
+        }
+
+        if (v[vname] && v[vname] != ele.parentNode.parentNode.querySelector("td:nth-child(4) span").innerText) {
+            ele.style.backgroundColor = "pink";
+            return false;
+        }
+        else {
+            ele.style.backgroundColor = "lightgreen";
+            return true;
+        }
+    }
+
+    function changevname(ele) {
+        if (!checkvname(ele)) {
+            if (confirm("Variable name already exists!\nDo you want to revert the change?")) {
+                ele.value = ele.previousValue;
+                changevname(ele);
+                return;
+            }
+            else {
+                ele.select();
+                return;
+            }
+        }
+        else {
+            ele.style.backgroundColor = "";
+            var oldvname = ele.previousValue;
+            var newvname = ele.value;
+            // change value
+            v[newvname] = v[oldvname];
+            vref[newvname] = (vref[newvname] || 0) + 1;
+            vref[oldvname]--;
+            // delete old variable if no references
+            if (vref[oldvname] == 0) {
+                delete v[oldvname];
+                delete vref[oldvname];
+            }
+        }
+    }
+</script>
