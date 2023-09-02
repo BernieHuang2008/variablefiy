@@ -68,7 +68,8 @@
     var tokens = [];
 
     const exp_color = /(#[0-9a-fA-F]{3,8})|((rgb|rgba)\(.+?\))/g;
-    const colors = ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"];
+    const kwcolors = ["black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua"];
+    const exp_kwcolor = new RegExp(`(${kwcolors.join("|")})`, "g"); // construct a RegExp to match all keyword-colors
 
     function start() {
         if ($("#content").innerHTML != "" && !confirm("Are you sure to discard your changes?")) return;
@@ -146,9 +147,10 @@
                     var key = line_split[0].trim();
                     var value = line_split[1].trim();
 
-                    // if it's a color
-                    if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
-                        value.match(exp_color).forEach(c => {
+                    // match colors
+                    var color_match = (value.match(exp_color) || []).concat(value.match(exp_kwcolor) || []);
+                    if (color_match.length > 0) {
+                        color_match.forEach(c => {
                             var variable = autoVar(curr_block, key, c);
                             tokens.push({
                                 line: i,
