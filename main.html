@@ -144,14 +144,16 @@
 
                 // if it's a color
                 if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
-                    var variable = autoVar(curr_block, key, value);
-                    tokens.push({
-                        line: i,
-                        block: curr_block,
-                        key: key,
-                        value: value,
-                        var: variable
-                    });
+                    value.match(exp_color).forEach(c => {
+                        var variable = autoVar(curr_block, key, c);
+                        tokens.push({
+                            line: i,
+                            block: curr_block,
+                            key: key,
+                            value: c,
+                            var: variable
+                        });
+                    })
                 }
             }
 
