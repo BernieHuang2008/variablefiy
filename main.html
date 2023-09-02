@@ -105,8 +105,11 @@
                         aLine = " ";
                         break;
                     case '}':
-                        aLine = aLine.replace('}', ';');
-                        lines.push(aLine.trim());
+                        if (aLine.length > 2) { // not only ' {'
+                            if (aLine.indexOf(';') == -1)  // if there isn't a ';'  
+                                aLine = aLine.replace('}', ';');
+                            lines.push(aLine.trim());
+                        }
                         lines.push("}");
                         aLine = " ";
                         break;
@@ -379,18 +382,18 @@
         var lines = csscode.split('\n');
         for (var i = 0; i < $("#content").children.length; i++) {
             tr = $("#content").children[i];
+
             // get lncode, key, val, variable
             var lncode = Number(tr.querySelector("td:nth-child(1) pre code").innerText.replace("Ln ", ""));
             var key = tr.querySelector("td:nth-child(3)").innerText;
             var val = tr.querySelector("td:nth-child(4) span").innerText;
             var variable = tr.querySelector("td:nth-child(5) input").value;
-            if (lncode == 29) debugger
+
             // replace
             if (variable != '') {
                 console.log(lncode, key, val, variable)
-                lines[lncode - 1] = `${key}: var(${variable});`;
+                lines[lncode - 1].replace(val, `var(${variable})`);
             }
-            if (lncode == 29) debugger
         }
         csscode = lines.join('\n');
 
