@@ -136,39 +136,41 @@
 
         /* Generate Token */
         for (var i = 1; i <= lines.length; i++) {    // i: line number
-            var line = lines[i - 1].trim();
+            try {
+                var line = lines[i - 1].trim();
 
-            // a css line
-            if (line.indexOf(";") != -1) {
-                line = line.replace(';', '');    // remove ";"
-                var line_split = line.split(":", 2);
-                var key = line_split[0].trim();
-                var value = line_split[1].trim();
+                // a css line
+                if (line.indexOf(";") != -1) {
+                    line = line.replace(';', '');    // remove ";"
+                    var line_split = line.split(":", 2);
+                    var key = line_split[0].trim();
+                    var value = line_split[1].trim();
 
-                // if it's a color
-                if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
-                    value.match(exp_color).forEach(c => {
-                        var variable = autoVar(curr_block, key, c);
-                        tokens.push({
-                            line: i,
-                            block: curr_block,
-                            key: key,
-                            value: c,
-                            var: variable
-                        });
-                    })
+                    // if it's a color
+                    if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
+                        value.match(exp_color).forEach(c => {
+                            var variable = autoVar(curr_block, key, c);
+                            tokens.push({
+                                line: i,
+                                block: curr_block,
+                                key: key,
+                                value: c,
+                                var: variable
+                            });
+                        })
+                    }
                 }
-            }
 
-            // a css selector (css block start)
-            else if (line.indexOf("{") != -1) {
-                curr_block = line.split("{")[0].trim();
-            }
+                // a css selector (css block start)
+                else if (line.indexOf("{") != -1) {
+                    curr_block = line.split("{")[0].trim();
+                }
 
-            // a css block end
-            else if (line.indexOf("}") != -1) {
-                curr_block = "";
-            }
+                // a css block end
+                else if (line.indexOf("}") != -1) {
+                    curr_block = "";
+                }
+            } catch (e) { console.log(e) }
         }
 
         /* Sort Tokens */
