@@ -105,8 +105,9 @@
                         aLine = " ";
                         break;
                     case '}':
-                        if (aLine.length > 2) { // ' }'
-                            aLine = aLine.replace('}', ';');
+                        if (aLine.length > 2) { // not only ' {'
+                            if (aLine.indexOf(';') == -1)  // if there isn't a ';'  
+                                aLine = aLine.replace('}', ';');
                             lines.push(aLine.trim());
                         }
                         lines.push("}");
@@ -142,20 +143,21 @@
                 if (line.indexOf(";") != -1) {
                     line = line.replace(';', '');    // remove ";"
                     var line_split = line.split(":", 2);
-                    console.log(line_split);
                     var key = line_split[0].trim();
                     var value = line_split[1].trim();
 
                     // if it's a color
                     if (value.match(exp_color) || colors.indexOf(value.toLowerCase()) != -1) {
-                        var variable = autoVar(curr_block, key, value);
-                        tokens.push({
-                            line: i,
-                            block: curr_block,
-                            key: key,
-                            value: value,
-                            var: variable
-                        });
+                        value.match(exp_color).forEach(c => {
+                            var variable = autoVar(curr_block, key, c);
+                            tokens.push({
+                                line: i,
+                                block: curr_block,
+                                key: key,
+                                value: c,
+                                var: variable
+                            });
+                        })
                     }
                 }
 
@@ -382,18 +384,18 @@
         var lines = csscode.split('\n');
         for (var i = 0; i < $("#content").children.length; i++) {
             tr = $("#content").children[i];
+
             // get lncode, key, val, variable
             var lncode = Number(tr.querySelector("td:nth-child(1) pre code").innerText.replace("Ln ", ""));
             var key = tr.querySelector("td:nth-child(3)").innerText;
             var val = tr.querySelector("td:nth-child(4) span").innerText;
             var variable = tr.querySelector("td:nth-child(5) input").value;
-            if (lncode == 29) debugger
+
             // replace
             if (variable != '') {
                 console.log(lncode, key, val, variable)
-                lines[lncode - 1] = `${key}: var(${variable});`;
+                lines[lncode - 1].replace(val, `var(${variable})`);
             }
-            if (lncode == 29) debugger
         }
         csscode = lines.join('\n');
 
