@@ -396,7 +396,7 @@
             // replace
             if (variable != '') {
                 console.log(lncode, key, val, variable)
-                lines[lncode - 1].replace(val, `var(${variable})`);
+                lines[lncode - 1] = lines[lncode - 1].replace(val, `var(${variable})`);
             }
         }
         csscode = lines.join('\n');
