@@ -18,10 +18,13 @@
 
     input {
         width: 100%;
+        user-select: text;
     }
 
     table {
+        user-select: none;
         width: 100%;
+        border-collapse: collapse;
     }
 
     .detailed-codeblock {
@@ -31,6 +34,19 @@
         overflow: auto;
         background-color: #eee;
         z-index: 1;
+    }
+
+    pre>code.language-css {
+        user-select: none;
+        cursor: pointer;
+    }
+
+    .no-bg {
+        background-color: transparent !important;
+    }
+
+    tr.choosed {
+        background-color: #ddd;
     }
 </style>
 
@@ -47,7 +63,8 @@
                 <th>CSS Block</th>
                 <th>Key</th>
                 <th>Value</th>
-                <th>Variable</th>
+                <th></th>
+                <th>Variable Name</th>
             </tr>
         </thead>
         <tbody id="content"></tbody>
@@ -184,12 +201,45 @@
         tokens.forEach(t => {
             var tr = document.createElement("tr");
             tr.onmouseleave = hidecode;
+            tr.onclick = function () {
+                function _toggle_choose() {
+                    if (tr.classList.contains("choosed"))
+                        tr.classList.remove("choosed");
+                    else
+                        tr.classList.add("choosed");
+                }
+
+                // control key
+                if (window.vkeyboard['Control']) {
+                    _toggle_choose();
+                }
+                // shift
+                else if (window.vkeyboard['Shift']) {
+                    var trs = Array.from($$("#content tr"));
+                    var start = trs.indexOf($$("#content tr.choosed")[0]);
+                    var end = trs.indexOf(tr);
+                    if (start > end) {
+                        var temp = start;
+                        start = end;
+                        end = temp;
+                    }
+                    for (var i = start; i <= end; i++) {
+                        trs[i].classList.add("choosed");
+                    }
+                }
+                // normal
+                else {
+                    $$('tr.choosed').forEach(tr => tr.classList.remove("choosed"));
+                    _toggle_choose();
+                }
+            }
             tr.innerHTML = `
-                <td><pre><code style="cursor: pointer;user-select:none;" onclick="showcode(this, ${t.line})">Ln ${t.line}</code></pre></td>
-                <td><pre><code class='language-css'>${formatSelector(t.block)}</pre></code></td>
+                <td><pre><code class='no-bg'>Line ${t.line}</code></pre></td>
+                <td><pre><code class='language-css' onclick="showcode(this, ${t.line})">${formatSelector(t.block)}</pre></code></td>
                 <td>${t.key}</td>
                 <td><span class=col style="--cl: ${t.value}">${t.value}</span></td>
-                <td><input value="${t.var}" onclick="backupvname(this)" oninput="checkvname(this)" onchange="changevname(this)"></td>
+                <td><input type="checkbox" onclick="ch_usevar(event, this)"></td>
+                <td><input value="${t.var}" onclick="backupvname(event, this)" oninput="checkvname(this)" onchange="changevname(event,this)" disabled></td>
             `;
             content.appendChild(tr);
         })
@@ -197,6 +247,15 @@
         /* Highlight Code */
         hljs.highlightAll();
     }
+
+    // virtual keyboard
+    window.vkeyboard = {};
+    document.addEventListener("keydown", function (e) {
+        window.vkeyboard[e.key] = true;
+    });
+    document.addEventListener("keyup", function (e) {
+        window.vkeyboard[e.key] = false;
+    });
 
     function showcode(ele, line) {
         // create codeblock
@@ -303,6 +362,17 @@
     function backupvname(ele) {
         ele.previousValue = ele.value;
         ele.select();
+
+        var tr = ele.parentNode.parentNode;
+        if (tr.classList.contains("choosed")) {
+            event.stopPropagation();
+
+            choose_list = Array.from($$("tr.choosed"));
+            choose_list.forEach(tr2 => {
+                var variable = tr2.querySelector("td:nth-child(6) input");
+                variable.previousValue = variable.value;
+            });
+        }
     }
 
     function checkvname(ele) {
@@ -318,6 +388,7 @@
         }
 
         if (v[vname] && v[vname] != ele.parentNode.parentNode.querySelector("td:nth-child(4) span").innerText) {
+            // vname exists and value is different
             ele.style.backgroundColor = "pink";
             return false;
         }
@@ -367,6 +438,37 @@
         }
     }
 
+    function ch_usevar(event, ele) {
+        var checked_status = ele.checked;
+        function _change(variable) {
+            if (checked_status) {
+                variable.disabled = false;
+                checkvname(variable);
+            }
+            else {
+                variable.disabled = true;
+                variable.style.backgroundColor = "";
+            }
+        }
+
+        var tr = ele.parentNode.parentNode;
+        if (tr.classList.contains("choosed")) {
+            event.stopPropagation();
+
+            choose_list = Array.from($$("tr.choosed"));
+            choose_list.forEach(tr2 => {
+                var ele2 = tr2.querySelector("td:nth-child(5) input");
+                var variable = tr2.querySelector("td:nth-child(6) input");
+                ele2.checked = checked_status;
+                _change(variable);
+            });
+        }
+        else {
+            var variable = tr.querySelector("td:nth-child(6) input");
+            _change(variable);
+        }
+    }
+
     function download(filename, text) {
         var pom = document.createElement('a');
         pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
@@ -383,33 +485,35 @@
     }
 
     function save() {
+        var res = "";
+        var define = "";
+
         var lines = csscode.split('\n');
         for (var i = 0; i < $("#content").children.length; i++) {
             tr = $("#content").children[i];
 
             // get lncode, key, val, variable
-            var lncode = Number(tr.querySelector("td:nth-child(1) pre code").innerText.replace("Ln ", ""));
+            var lncode = Number(tr.querySelector("td:nth-child(1) pre code").innerText.replace("Line ", ""));
             var key = tr.querySelector("td:nth-child(3)").innerText;
             var val = tr.querySelector("td:nth-child(4) span").innerText;
-            var variable = tr.querySelector("td:nth-child(5) input").value;
+            var usevar = tr.querySelector("td:nth-child(5) input").checked;
+            var variable = tr.querySelector("td:nth-child(6) input").value;
 
-            // replace
-            if (variable != '') {
+            // change
+            if (variable != '' && usevar === true) {
                 console.log(lncode, key, val, variable)
-                lines[lncode - 1] = lines[lncode - 1].replace(val, `var(${variable})`);
+                lines[lncode - 1] = lines[lncode - 1].replace(val, `var(${variable})`); // replace
+                define += `${variable}: ${val};`; // define
             }
         }
-        csscode = lines.join('\n');
+        res = lines.join('\n');
 
         // define variables
-        var define = "body {\n";
-        for (var x in v) {
-            define += `    ${x}: ${v[x]};\n`;
-        }
-        define += "}";
-        csscode = define + "\n\n" + csscode;
+        define = `body {${define}}`;
+        res = define + "\n\n" + res;
 
         // download
-        download("style.css", csscode);
+        console.log(res);
+        // download("style.css", csscode);
     }
 </script>
